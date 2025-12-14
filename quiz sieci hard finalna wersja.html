@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<title>Quiz Sieci – INF.02 / EE.08 (HARD)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<style>
+* { box-sizing:border-box; }
+body {
+  margin:0;
+  font-family: system-ui, sans-serif;
+  background:#0f172a;
+  color:#e5e7eb;
+}
+.container {
+  max-width:900px;
+  margin:auto;
+  padding:16px;
+}
+h1 { text-align:center; }
+.timer {
+  text-align:center;
+  font-size:1.3rem;
+  font-weight:bold;
+  color:#facc15;
+  margin-bottom:12px;
+}
+.card {
+  background:#111827;
+  border:1px solid #1f2937;
+  border-radius:10px;
+  padding:14px;
+  margin-bottom:14px;
+}
+.answers label {
+  display:block;
+  padding:10px;
+  margin:6px 0;
+  background:#020617;
+  border-radius:8px;
+}
+.answers input {
+  margin-right:8px;
+  transform:scale(1.2);
+}
+button {
+  width:100%;
+  padding:14px;
+  margin-top:10px;
+  font-size:1rem;
+  border:none;
+  border-radius:10px;
+  background:#2563eb;
+  color:white;
+}
+.secondary { background:#10b981; }
+.result { margin-top:20px; }
+.pass { color:#22c55e; font-weight:bold; }
+.fail { color:#ef4444; font-weight:bold; }
+.correct { color:#22c55e; }
+.wrong { color:#ef4444; }
+
+@media (min-width:700px){
+  button { width:auto; margin-right:10px; }
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+<h1>Quiz – Sieci komputerowe (HARD)</h1>
+<div class="timer" id="timer">30:00</div>
+
+<div id="quiz"></div>
+
+<button onclick="finishQuiz()">Zakończ test</button>
+<button class="secondary" onclick="newQuiz()">Nowy quiz</button>
+
+<div id="result" class="result"></div>
+</div>
+
+<script>
+const ALL_QUESTIONS = [
+{q:"Zbiór protokołów komunikacyjnych to:",c:"stos protokołów",w:["pakiet","ramka","segment"]},
+{q:"Jednostka PDU warstwy sieci:",c:"pakiet",w:["ramka","segment","bit"]},
+{q:"TCP działa w warstwie:",c:"transportowej",w:["sieciowej","aplikacji","łącza danych"]},
+{q:"Adres MAC ma długość:",c:"48",w:["32","64","16"]},
+{q:"Model TCP/IP składa się z:",c:"4 ",w:["7","5","3"]},
+{q:"Warstwa zarządzająca sesjami WWW:",c:"aplikacji",w:["transportowa","sesji","sieciowa"]},
+{q:"Warstwa sieci OSI to:",c:"3",w:["2","4","1"]},
+{q:"Użytkownik korzysta z sieci przez warstwę:",c:"aplikacji",w:["transportową","sieciową","fizyczną"]},
+{q:"Model TCP/IP to model:",c:"DoD",w:["OSI","ISO","hybrydowy"]},
+{q:"Proces dodawania nagłówków:",c:"enkapsulacja",w:["fragmentacja","routing","multipleksing"]},
+{q:"Poprawną komunikację zapewnia warstwa:",c:"transportowa",w:["sieciowa","sesji","fizyczna"]},
+{q:"Model ISO/OSI ma:",c:"7 ",w:["4","5","6"]},
+{q:"Urządzenia warstwy 3:",c:"routery",w:["switche","huby","repeatery"]},
+{q:"Segmentacja danych:",c:"transportowa",w:["sieciowa","łącza danych","aplikacji"]},
+{q:"IP działa w warstwie:",c:"sieci",w:["transportowej","sesji","łącza danych"]},
+{q:"Numeracja portów dotyczy:",c:"transportowej",w:["sieciowej","aplikacji","fizycznej"]},
+{q:"Błąd HTTP 404:",c:"brak zasobu",w:["brak dostępu","błąd serwera","zły protokół"]},
+{q:"Dynamiczny przydział IP:",c:"DHCP",w:["DNS","ARP","ICMP"]},
+{q:"Rekord MX dotyczy:",c:"poczty",w:["WWW","IPv6","MAC"]},
+{q:"Port sterujący FTP:",c:"21",w:["20","22","23"]},
+{q:"Szyfrowany HTTP:",c:"HTTPS",w:["FTPS","SSH","SFTP"]},
+{q:"Zamiana domen na IP:",c:"DNS",w:["DHCP","SMTP","FTP"]},
+{q:"PuTTY używa protokołu:",c:"SSH",w:["FTP","HTTP","SMTP"]},
+{q:"Port danych FTP:",c:"20",w:["21","22","80"]},
+{q:"Protokoły poczty:",c:"SMTP i POP3/IMAP",w:["HTTP/HTTPS","DNS/DHCP","FTP/SFTP"]},
+{q:"SSH służy do:",c:"bezpiecznego logowania",w:["poczty","WWW","mapowania MAC"]},
+{q:"POP3S działa na porcie:",c:"995",w:["110","993","443"]},
+{q:"Nie jest protokołem aplikacyjnym:",c:"ARP",w:["SMTP","SSH","SNMP"]},
+{q:"UDP jest protokołem:",c:"bezpołączeniowym",w:["stanowym","szyfrowanym","sesyjnym"]},
+{q:"Nagłówek UDP ma:",c:"8",w:["20","12","16"]},
+{q:"Nagłówek TCP ma:",c:"20",w:["8","12","24"]}
+];
+
+let questions=[], timeLeft, timerInt, finished=false;
+
+function shuffle(a){ return a.sort(()=>Math.random()-0.5); }
+
+function getGrade(percent){
+  if(percent<=29) return {g:1,l:"NIEDOSTATECZNY"};
+  if(percent<=49) return {g:2,l:"DOPUSZCZAJĄCY"};
+  if(percent<=69) return {g:3,l:"DOSTATECZNY"};
+  if(percent<=80) return {g:4,l:"DOBRY"};
+  return {g:5,l:"BARDZO DOBRY"};
+}
+
+function startTimer(){
+  clearInterval(timerInt);
+  timerInt=setInterval(()=>{
+    if(finished) return;
+    timeLeft--;
+    const m=Math.floor(timeLeft/60);
+    const s=timeLeft%60;
+    document.getElementById("timer").textContent=
+      `${m}:${s.toString().padStart(2,"0")}`;
+    if(timeLeft<=0) finishQuiz();
+  },1000);
+}
+
+function buildQuiz(){
+  finished=false;
+  document.getElementById("result").innerHTML="";
+  timeLeft=30*60;
+  document.getElementById("timer").textContent="30:00";
+  startTimer();
+
+  questions=shuffle([...ALL_QUESTIONS]).slice(0,15);
+  const quiz=document.getElementById("quiz");
+  quiz.innerHTML="";
+
+  questions.forEach((q,i)=>{
+    const answers=shuffle([q.c,...q.w]);
+    const div=document.createElement("div");
+    div.className="card";
+    div.innerHTML=`<b>${i+1}. ${q.q}</b>`;
+    answers.forEach(a=>{
+      div.innerHTML+=`
+      <div class="answers">
+        <label>
+          <input type="radio" name="q${i}" value="${a}">
+          ${a}
+        </label>
+      </div>`;
+    });
+    quiz.appendChild(div);
+  });
+}
+
+function finishQuiz(){
+  if(finished) return;
+  finished=true;
+  clearInterval(timerInt);
+
+  let score=0;
+  let details="";
+  questions.forEach((q,i)=>{
+    const ans=document.querySelector(`input[name="q${i}"]:checked`);
+    if(ans && ans.value===q.c){
+      score++;
+      details+=`<p class="correct">✔ ${q.q}</p>`;
+    } else {
+      details+=`<p class="wrong">✖ ${q.q}<br>Poprawna: <b>${q.c}</b></p>`;
+    }
+  });
+
+  const percent=Math.round(score/15*100);
+  const grade=getGrade(percent);
+  const passed=percent>=50;
+
+  document.getElementById("result").innerHTML=`
+    <h2>Wynik końcowy</h2>
+    <p><b>Punkty:</b> ${score} / 15</p>
+    <p><b>Procent:</b> ${percent}%</p>
+    <p><b>Ocena:</b> ${grade.g} – ${grade.l}</p>
+    <p class="${passed?'pass':'fail'}">
+      ${passed?'ZDAŁEŚ EGZAMIN 🎉':'NIE ZDAŁEŚ ❌'}
+    </p>
+    <hr>
+    ${details}
+  `;
+}
+
+function newQuiz(){
+  clearInterval(timerInt);
+  buildQuiz();
+}
+
+buildQuiz();
+</script>
+</body>
+</html>
